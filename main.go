@@ -80,7 +80,7 @@ func setValue(row []string, in interface{}) error {
 			case time.Time:
 				val, err = dateparse.ParseAny(str)
 			default:
-				return fmt.Errorf("unknown type: %s", field.Type().Name())
+				return fmt.Errorf("unknown type: %s", field.Type())
 			}
 			if err != nil {
 				return err
