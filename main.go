@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 	"strconv"
 	"time"
@@ -11,31 +12,35 @@ import (
 )
 
 type Person struct {
-	Name      string    `json:"name" column:"A"`
-	Age       int64     `json:"age" column:"B"`
-	Weight    float64   `json:"weight" column:"C"`
-	Birthdate time.Time `json:"birth_date" column:"D"`
+	Name      string    `column:"A"`
+	Age       int64     `column:"B"`
+	Weight    float64   `column:"C"`
+	BirthDate time.Time `column:"D"`
+}
+
+type Teacher struct {
+	Person
+
+	Class   int64  `column:"E"`
+	Subject string `column:"F"`
 }
 
 func main() {
 	f, err := excelize.OpenFile("./sample.xlsx")
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 
 	rows, err := f.GetRows("Sheet1")
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 
 	// 2行目以降に対して
 	for _, row := range rows[1:] {
 		p := Person{}
-		if err := setValue(row, &p); err != nil {
-			fmt.Println(err)
-			return
+		if err := unmarshalRows(row, &p); err != nil {
+			log.Fatal(err)
 		}
 
 		fmt.Printf("%+v\n", p)
@@ -43,7 +48,7 @@ func main() {
 }
 
 // 構造体のタグを元にrowの値を割り当てる
-func setValue(row []string, in interface{}) error {
+func unmarshalRows(row []string, v any) error {
 	var f func(reflect.Value) error
 	f = func(v reflect.Value) error {
 		for i := 0; i < v.NumField(); i++ {
@@ -67,7 +72,7 @@ func setValue(row []string, in interface{}) error {
 				return err
 			}
 
-			var val interface{}
+			var val any
 
 			// stringをフィールドの型に合うように変換
 			switch field.Interface().(type) {
@@ -80,10 +85,11 @@ func setValue(row []string, in interface{}) error {
 			case time.Time:
 				val, err = dateparse.ParseAny(str)
 			default:
-				return fmt.Errorf("unknown type: %s", field.Type())
+				return fmt.Errorf("unexpected type: %s", field.Type())
 			}
 			if err != nil {
-				return err
+				log.Println(err)
+				continue
 			}
 
 			// 構造体のフィールドに値をセット
@@ -93,7 +99,7 @@ func setValue(row []string, in interface{}) error {
 		return nil
 	}
 
-	if err := f(reflect.ValueOf(in).Elem()); err != nil {
+	if err := f(reflect.ValueOf(v).Elem()); err != nil {
 		return err
 	}
 
